@@ -1,0 +1,133 @@
+import sqlite3
+#Database Connectivity
+connection = sqlite3.connect("myTable.db")
+crsr = connection.cursor()
+#Creating Table Bus 
+sql_command = """CREATE TABLE bus (  bus_name VARCHAR(20), from_ VARCHAR(20),  to_ VARCHAR(30),  total_seat INTEGER,price INTEGER , bus_id VARCHAR(20), available_seat INTEGER);"""
+crsr.execute(sql_command)
+#Creating Table Agent
+sql_command = """CREATE TABLE agent (  agent_name VARCHAR(20),  mob_no VARCHAR(20),  pwd VARCHAR(20),  code VARCHAR(20) , booking VARCHAR(20));"""
+crsr.execute(sql_command)
+#Let's assume a single admin with this username and password
+admin_username='admin'
+admin_password='admin07'
+
+def ad():
+    #Validating Username and Password for admin
+    usr=input('Enter admin login username\n')
+    pwd=input('Enter admin login password\n')
+    if usr==admin_username and pwd==admin_password:
+        while 1:
+            #Performing the functions of admin
+            print('1. Add Bus\n2. Add Agent\n3. Logout\n')
+            m=int(input('Enter choice: '))
+            if m==1:
+                name,frm,tto,seat,price=input('Enter Bus Name'),input('Enter from'),input('Enter to'),int(input('Enter total seats')),int(input('Enter price'))
+                #Generating bus code
+                busid=name[:4]+str(seat)
+                avail=seat
+                #Adding new row to Table bus '?' is placeholder for sqlite 
+                #'%s' is used as placeholder for mysql
+                sql_command="""INSERT INTO bus (bus_name,from_,to_,total_seat,price,bus_id,available_seat) VALUES( ? , ? , ? ,? , ?  , ? , ? );"""
+                r=(name,frm,tto,seat,price,busid,avail)
+                crsr.execute(sql_command,r)
+                print('Bus created with id',busid)
+            elif m==2:
+                name,num,pwd=input('Enter name'),input('Enter mobile number'),input('Enter password')
+                #Generating code for agent
+                cd=name[:4]
+                #Adding new row to Table agent
+                sql_command="""INSERT INTO agent (agent_name,mob_no,pwd,code,booking) VALUES( ? , ? , ? ,? , ? );"""
+                r=(name,num,pwd,cd,'')
+                crsr.execute(sql_command,r)
+                print('Agent created with code',cd)
+            else:
+                break
+    #When admin username and password is not correct, display invalid login 
+    else:
+        
+        print('Invalid login')
+def ag():
+    #Validating agent as per the Table created by admin
+    c=input('Enter Agent code')
+    p=input('Enter password')
+    crsr.execute("SELECT pwd from agent where code=?",(c,))
+    ans = crsr.fetchall()
+    #If login successful, functions of agent are performed
+    if (p,) in ans:
+        while 1:
+            print('1. List the Bus Details\n2. Book ticket\n3. Show My Booking\n4. Logout\n')
+            m=int(input('Enter Choice: '))
+            if m==1:
+                #Fetching all the bus details and displaying
+                crsr.execute("SELECT * FROM bus")
+                ans = crsr.fetchall()
+                print('Bus Details')
+                for i in ans:
+                    print(i)
+            elif m==2:
+                #Fetching Details from bus id
+                bid=input('Enter bus id')
+                crsr.execute("SELECT bus_name,from_,to_,available_seat,price FROM bus where bus_id=?",(bid,))
+                ans = crsr.fetchall()
+                l=list(ans[0])
+                print('Bus Name: {}\nFrom : {}\nTo : {}\nAvailable seats : {}\n'.format(l[0],l[1],l[2],l[3]))
+                nt=int(input('Enter number of tickets to book'))
+                #if tickets available amount is calculated
+                if nt<l[3]:
+                    print('Total fare : Rs {}\nPress\n1. To Book\n2. To Cancel Booking\n'.format(nt*l[4]))
+                    #Corfirmation prompt for booking
+                    if int(input())==1:
+                        print('Booking Successful')
+                        #Updating the availability of seats in Table Bus
+                        crsr.execute("UPDATE bus SET available_seat=? where bus_id=?",(l[3]-nt,bid))
+                        #Encoding the booking of tickets in Table agent 
+                        #To make ease to Show my booking method of agent
+                        crsr.execute("SELECT booking from agent where code=?",(c,))
+                        s=crsr.fetchone()
+                        s=s[0]
+                        q='{},{} '.format(bid,nt)
+                        q+=s
+                        crsr.execute("UPDATE agent SET booking=? where code=?",(q,c))
+                    else:
+                        print('Booking Cancelled')
+                else:
+                    print('Tickets not available')
+            elif m==3:
+                #Decoding booking column to Show my booking details of agent
+                crsr.execute("SELECT booking from agent where code=?",(c,))
+                s=crsr.fetchone()
+                s=s[0]
+                l=s.split()
+                res=[]
+                for i in l:
+                    b=i.split(',')
+                    crsr.execute("SELECT bus_name,from_,to_,price FROM bus where bus_id=?",(b[0],))
+                    ans = crsr.fetchall()
+                    pl=list(ans[0])
+                    res.append([pl[0],pl[1],pl[2],b[1],int(b[1])*int(pl[3])])
+                #Displaying details of all booking under the loged in agent
+                print(['Bus Name','From','To','No of tickets Booked','Total Fare'])
+                for i in res:
+                    print(i)
+            else:
+                break
+    else:
+        print('Invalid login')
+while 1:
+    print('1. Admin Login\n2. Agent Login\n3. Exit\n')
+    n=int(input('Enter Choice: '))
+    if n==1:
+        #Calling the Admin login method
+        ad()
+    elif n==2:
+        #Calling the Agent login method
+        ag()
+    else:
+        #Terminating the program
+        print('Thank You')
+        break
+#To save changes in the table
+connection.commit()
+#To close the DB connectivity
+connection.close()
